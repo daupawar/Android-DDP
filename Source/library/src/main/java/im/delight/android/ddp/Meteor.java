@@ -1036,26 +1036,28 @@ public class Meteor {
      * @param listener   the listener to trigger when the result has been received or `null`
      */
     public void callWithSeed(final String methodName, final String randomSeed, final Object[] params, final ResultListener listener) {
-        // create a new unique ID for this request
-        final String callId = uniqueID();
+        if(isValidToCall(listener)) {
+            // create a new unique ID for this request
+            final String callId = uniqueID();
 
-        // save a reference to the listener to be executed later
-        if (listener != null) {
-            mListeners.put(callId, listener);
-        }
+            // save a reference to the listener to be executed later
+            if (listener != null) {
+                mListeners.put(callId, listener);
+            }
 
-        // send the request
-        final Map<String, Object> data = new HashMap<String, Object>();
-        data.put(Protocol.Field.MESSAGE, Protocol.Message.METHOD);
-        data.put(Protocol.Field.METHOD, methodName);
-        data.put(Protocol.Field.ID, callId);
-        if (params != null) {
-            data.put(Protocol.Field.PARAMS, params);
+            // send the request
+            final Map<String, Object> data = new HashMap<String, Object>();
+            data.put(Protocol.Field.MESSAGE, Protocol.Message.METHOD);
+            data.put(Protocol.Field.METHOD, methodName);
+            data.put(Protocol.Field.ID, callId);
+            if (params != null) {
+                data.put(Protocol.Field.PARAMS, params);
+            }
+            if (randomSeed != null) {
+                data.put(Protocol.Field.RANDOM_SEED, randomSeed);
+            }
+            send(data);
         }
-        if (randomSeed != null) {
-            data.put(Protocol.Field.RANDOM_SEED, randomSeed);
-        }
-        send(data);
     }
 
     /**
