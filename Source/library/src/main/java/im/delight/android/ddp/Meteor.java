@@ -16,33 +16,32 @@ package im.delight.android.ddp;
  * limitations under the License.
  */
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
 import android.os.AsyncTask;
 
-import com.firebase.tubesock.WebSocket;
-import com.firebase.tubesock.WebSocketEventHandler;
-import com.firebase.tubesock.WebSocketException;
-import com.firebase.tubesock.WebSocketMessage;
-
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.map.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.neovisionaries.ws.client.WebSocket;
+import com.neovisionaries.ws.client.WebSocketException;
+import com.neovisionaries.ws.client.WebSocketFactory;
+import com.neovisionaries.ws.client.WebSocketFrame;
+import com.neovisionaries.ws.client.WebSocketListener;
+import com.neovisionaries.ws.client.WebSocketState;
 
 import java.io.IOException;
-import java.net.URI;
+import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentLinkedQueue;
+
+import javax.net.ssl.SSLContext;
 
 import im.delight.android.ddp.db.DataStore;
 import im.delight.android.ddp.db.Database;
@@ -72,7 +71,7 @@ public class Meteor {
     /**
      * The callback that handles messages and events received from the WebSocket connection
      */
-    private final WebSocketEventHandler mWebSocketEventHandler;
+    private final WebSocketListener mWebSocketEventHandler;
     /**
      * Map that tracks all pending Listener instances
      */
@@ -101,9 +100,6 @@ public class Meteor {
     private String mLoggedInUserId;
     private final DataStore mDataStore;
 
-    private boolean hasNetworkConnection;
-    private NetworkMonitorListener networkMonitorListener;
-    private boolean workLibOffline;
 
     /**
      * Returns a new instance for a client connecting to a server via DDP over websocket
@@ -169,10 +165,15 @@ public class Meteor {
         mDataStore = dataStore;
 
         // create a new handler that processes the messages and events received from the WebSocket connection
-        mWebSocketEventHandler = new WebSocketEventHandler() {
+        mWebSocketEventHandler = new WebSocketListener() {
 
             @Override
-            public void onOpen() {
+            public void onStateChanged(WebSocket websocket, WebSocketState newState) throws Exception {
+
+            }
+
+            @Override
+            public void onConnected(WebSocket websocket, Map<String, List<String>> headers) throws Exception {
                 log(TAG);
                 log("  onOpen");
 
@@ -182,7 +183,12 @@ public class Meteor {
             }
 
             @Override
-            public void onClose() {
+            public void onConnectError(WebSocket websocket, WebSocketException cause) throws Exception {
+
+            }
+
+            @Override
+            public void onDisconnected(WebSocket websocket, WebSocketFrame serverCloseFrame, WebSocketFrame clientCloseFrame, boolean closedByServer) throws Exception {
                 log(TAG);
                 log("  onClose");
 
@@ -202,33 +208,115 @@ public class Meteor {
             }
 
             @Override
-            public void onMessage(final WebSocketMessage message) {
-                log(TAG);
-                log("  onTextMessage");
+            public void onFrame(WebSocket websocket, WebSocketFrame frame) throws Exception {
 
-                if (message.isText()) {
-                    log("    payload == " + message.getText());
-                    handleMessage(message.getText());
-                } else {
-                    log("    binary");
-                    log("      ignored");
-                }
             }
 
             @Override
-            public void onError(final WebSocketException e) {
-                mCallbackProxy.onException(e);
+            public void onContinuationFrame(WebSocket websocket, WebSocketFrame frame) throws Exception {
+
             }
 
             @Override
-            public void onLogMessage(final String msg) {
+            public void onTextFrame(WebSocket websocket, WebSocketFrame frame) throws Exception {
+
             }
 
+            @Override
+            public void onBinaryFrame(WebSocket websocket, WebSocketFrame frame) throws Exception {
+
+            }
+
+            @Override
+            public void onCloseFrame(WebSocket websocket, WebSocketFrame frame) throws Exception {
+
+            }
+
+            @Override
+            public void onPingFrame(WebSocket websocket, WebSocketFrame frame) throws Exception {
+
+            }
+
+            @Override
+            public void onPongFrame(WebSocket websocket, WebSocketFrame frame) throws Exception {
+
+            }
+
+            @Override
+            public void onTextMessage(WebSocket websocket, String text) throws Exception {
+
+                handleMessage(text);
+            }
+
+            @Override
+            public void onBinaryMessage(WebSocket websocket, byte[] binary) throws Exception {
+
+            }
+
+            @Override
+            public void onSendingFrame(WebSocket websocket, WebSocketFrame frame) throws Exception {
+
+            }
+
+            @Override
+            public void onFrameSent(WebSocket websocket, WebSocketFrame frame) throws Exception {
+
+            }
+
+            @Override
+            public void onFrameUnsent(WebSocket websocket, WebSocketFrame frame) throws Exception {
+
+            }
+
+            @Override
+            public void onError(WebSocket websocket, WebSocketException cause) throws Exception {
+                mCallbackProxy.onException(cause);
+            }
+
+            @Override
+            public void onFrameError(WebSocket websocket, WebSocketException cause, WebSocketFrame frame) throws Exception {
+
+            }
+
+            @Override
+            public void onMessageError(WebSocket websocket, WebSocketException cause, List<WebSocketFrame> frames) throws Exception {
+
+            }
+
+            @Override
+            public void onMessageDecompressionError(WebSocket websocket, WebSocketException cause, byte[] compressed) throws Exception {
+
+            }
+
+            @Override
+            public void onTextMessageError(WebSocket websocket, WebSocketException cause, byte[] data) throws Exception {
+
+            }
+
+            @Override
+            public void onSendError(WebSocket websocket, WebSocketException cause, WebSocketFrame frame) throws Exception {
+
+            }
+
+            @Override
+            public void onUnexpectedError(WebSocket websocket, WebSocketException cause) throws Exception {
+
+            }
+
+            @Override
+            public void handleCallbackError(WebSocket websocket, Throwable cause) throws Exception {
+
+            }
+
+            @Override
+            public void onSendingHandshake(WebSocket websocket, String requestLine, List<String[]> headers) throws Exception {
+
+            }
         };
 
         // create a map that holds the pending Listener instances
         mListeners = new HashMap<String, Listener>();
-        startConnectivityMonitoring(mContext);
+
         // create a queue that holds undispatched messages waiting to be sent
         mQueuedMessages = new ConcurrentLinkedQueue<String>();
 
@@ -275,19 +363,41 @@ public class Meteor {
                 return;
             }
         }
+        WebSocketFactory factory = new WebSocketFactory();
+        SSLContext context = null;
+        try {
+            context = NaiveSSLContext.getInstance("TLS");
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
 
-        // create a new WebSocket connection for the data transfer
-        mWebSocket = new WebSocket(URI.create(mServerUri));
-
-        // attach the handler to the connection
-        mWebSocket.setEventHandler(mWebSocketEventHandler);
+// Set the custom SSL context.
+        factory.setSSLContext(context);
 
         try {
-            mWebSocket.connect();
-        } catch (WebSocketException e) {
-            mCallbackProxy.onException(e);
+            mWebSocket = new WebSocketFactory().createSocket(mServerUri);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        // attach the handler to the connection
+        mWebSocket.addListener(mWebSocketEventHandler);
+        new BackgroundConnect().execute("");
+
+    }
+
+    private class BackgroundConnect extends AsyncTask<String, Void, Void> {
+
+        @Override
+        protected Void doInBackground(String... params) {
+            try {
+                mWebSocket.connect();
+            } catch (WebSocketException e) {
+                mCallbackProxy.onException(e);
+            }
+            return null;
         }
     }
+
 
     /**
      * Establish the connection to the server as requested by the DDP protocol (after the websocket has been opened)
@@ -315,7 +425,7 @@ public class Meteor {
 
         if (mWebSocket != null) {
             try {
-                mWebSocket.close();
+                mWebSocket.sendClose();
             } catch (Exception e) {
                 mCallbackProxy.onException(e);
             }
@@ -371,7 +481,7 @@ public class Meteor {
             log("    dispatching");
 
             if (mWebSocket != null) {
-                mWebSocket.send(message);
+                mWebSocket.sendText(message);
             } else {
                 throw new IllegalStateException("You must have called the 'connect' method before you can send data");
             }
@@ -459,11 +569,11 @@ public class Meteor {
 
         if (data != null) {
             if (data.has(Protocol.Field.MESSAGE)) {
-                final String message = data.get(Protocol.Field.MESSAGE).getTextValue();
+                final String message = data.get(Protocol.Field.MESSAGE).textValue();
 
                 if (message.equals(Protocol.Message.CONNECTED)) {
                     if (data.has(Protocol.Field.SESSION)) {
-                        mSessionID = data.get(Protocol.Field.SESSION).getTextValue();
+                        mSessionID = data.get(Protocol.Field.SESSION).textValue();
                     }
 
                     // initialize the new session
@@ -471,7 +581,7 @@ public class Meteor {
                 } else if (message.equals(Protocol.Message.FAILED)) {
                     if (data.has(Protocol.Field.VERSION)) {
                         // the server wants to use a different protocol version
-                        final String desiredVersion = data.get(Protocol.Field.VERSION).getTextValue();
+                        final String desiredVersion = data.get(Protocol.Field.VERSION).textValue();
 
                         // if the protocol version that was requested by the server is supported by this client
                         if (isVersionSupported(desiredVersion)) {
@@ -486,7 +596,7 @@ public class Meteor {
                 } else if (message.equals(Protocol.Message.PING)) {
                     final String id;
                     if (data.has(Protocol.Field.ID)) {
-                        id = data.get(Protocol.Field.ID).getTextValue();
+                        id = data.get(Protocol.Field.ID).textValue();
                     } else {
                         id = null;
                     }
@@ -495,14 +605,14 @@ public class Meteor {
                 } else if (message.equals(Protocol.Message.ADDED) || message.equals(Protocol.Message.ADDED_BEFORE)) {
                     final String documentID;
                     if (data.has(Protocol.Field.ID)) {
-                        documentID = data.get(Protocol.Field.ID).getTextValue();
+                        documentID = data.get(Protocol.Field.ID).textValue();
                     } else {
                         documentID = null;
                     }
 
                     final String collectionName;
                     if (data.has(Protocol.Field.COLLECTION)) {
-                        collectionName = data.get(Protocol.Field.COLLECTION).getTextValue();
+                        collectionName = data.get(Protocol.Field.COLLECTION).textValue();
                     } else {
                         collectionName = null;
                     }
@@ -522,14 +632,14 @@ public class Meteor {
                 } else if (message.equals(Protocol.Message.CHANGED)) {
                     final String documentID;
                     if (data.has(Protocol.Field.ID)) {
-                        documentID = data.get(Protocol.Field.ID).getTextValue();
+                        documentID = data.get(Protocol.Field.ID).textValue();
                     } else {
                         documentID = null;
                     }
 
                     final String collectionName;
                     if (data.has(Protocol.Field.COLLECTION)) {
-                        collectionName = data.get(Protocol.Field.COLLECTION).getTextValue();
+                        collectionName = data.get(Protocol.Field.COLLECTION).textValue();
                     } else {
                         collectionName = null;
                     }
@@ -556,14 +666,14 @@ public class Meteor {
                 } else if (message.equals(Protocol.Message.REMOVED)) {
                     final String documentID;
                     if (data.has(Protocol.Field.ID)) {
-                        documentID = data.get(Protocol.Field.ID).getTextValue();
+                        documentID = data.get(Protocol.Field.ID).textValue();
                     } else {
                         documentID = null;
                     }
 
                     final String collectionName;
                     if (data.has(Protocol.Field.COLLECTION)) {
-                        collectionName = data.get(Protocol.Field.COLLECTION).getTextValue();
+                        collectionName = data.get(Protocol.Field.COLLECTION).textValue();
                     } else {
                         collectionName = null;
                     }
@@ -581,17 +691,17 @@ public class Meteor {
                         // if the result is from a previous login attempt
                         if (isLoginResult(resultData)) {
                             // extract the login token for subsequent automatic re-login
-                            final String loginToken = resultData.get(Protocol.Field.TOKEN).getTextValue();
+                            final String loginToken = resultData.get(Protocol.Field.TOKEN).textValue();
                             saveLoginToken(loginToken);
 
                             // extract the user's ID
-                            mLoggedInUserId = resultData.get(Protocol.Field.ID).getTextValue();
+                            mLoggedInUserId = resultData.get(Protocol.Field.ID).textValue();
                         }
                     }
 
                     final String id;
                     if (data.has(Protocol.Field.ID)) {
-                        id = data.get(Protocol.Field.ID).getTextValue();
+                        id = data.get(Protocol.Field.ID).textValue();
                     } else {
                         id = null;
                     }
@@ -617,10 +727,10 @@ public class Meteor {
                     }
                 } else if (message.equals(Protocol.Message.READY)) {
                     if (data.has(Protocol.Field.SUBS)) {
-                        final Iterator<JsonNode> elements = data.get(Protocol.Field.SUBS).getElements();
+                        final Iterator<JsonNode> elements = data.get(Protocol.Field.SUBS).elements();
                         String subscriptionId;
                         while (elements.hasNext()) {
-                            subscriptionId = elements.next().getTextValue();
+                            subscriptionId = elements.next().textValue();
 
                             final Listener listener = mListeners.get(subscriptionId);
 
@@ -634,7 +744,7 @@ public class Meteor {
                 } else if (message.equals(Protocol.Message.NOSUB)) {
                     final String subscriptionId;
                     if (data.has(Protocol.Field.ID)) {
-                        subscriptionId = data.get(Protocol.Field.ID).getTextValue();
+                        subscriptionId = data.get(Protocol.Field.ID).textValue();
                     } else {
                         subscriptionId = null;
                     }
@@ -1036,28 +1146,28 @@ public class Meteor {
      * @param listener   the listener to trigger when the result has been received or `null`
      */
     public void callWithSeed(final String methodName, final String randomSeed, final Object[] params, final ResultListener listener) {
-        if(isValidToCall(listener)) {
-            // create a new unique ID for this request
-            final String callId = uniqueID();
 
-            // save a reference to the listener to be executed later
-            if (listener != null) {
-                mListeners.put(callId, listener);
-            }
+        // create a new unique ID for this request
+        final String callId = uniqueID();
 
-            // send the request
-            final Map<String, Object> data = new HashMap<String, Object>();
-            data.put(Protocol.Field.MESSAGE, Protocol.Message.METHOD);
-            data.put(Protocol.Field.METHOD, methodName);
-            data.put(Protocol.Field.ID, callId);
-            if (params != null) {
-                data.put(Protocol.Field.PARAMS, params);
-            }
-            if (randomSeed != null) {
-                data.put(Protocol.Field.RANDOM_SEED, randomSeed);
-            }
-            send(data);
+        // save a reference to the listener to be executed later
+        if (listener != null) {
+            mListeners.put(callId, listener);
         }
+
+        // send the request
+        final Map<String, Object> data = new HashMap<String, Object>();
+        data.put(Protocol.Field.MESSAGE, Protocol.Message.METHOD);
+        data.put(Protocol.Field.METHOD, methodName);
+        data.put(Protocol.Field.ID, callId);
+        if (params != null) {
+            data.put(Protocol.Field.PARAMS, params);
+        }
+        if (randomSeed != null) {
+            data.put(Protocol.Field.RANDOM_SEED, randomSeed);
+        }
+        send(data);
+
     }
 
     /**
@@ -1248,115 +1358,4 @@ public class Meteor {
             return null;
         }
     }
-
-    /**
-     * @param listener
-     * @return
-     */
-    private boolean isValidToCall(ResultListener listener) {
-
-        if (isWorkLibOffline()) {
-            return true;
-        } else {
-            if (listener != null) {
-                if (this.hasNetworkConnection) {
-                    if (isConnected()) {
-                        return true;
-                    } else {
-                        listener.onError("Error", "Please try again", "");
-                        reconnect();
-                        return false;
-                    }
-                } else {
-                    listener.onError("Error", "Please Check your network Connection", "");
-                    return false;
-                }
-            } else {
-                if (this.hasNetworkConnection) {
-                    if (isConnected()) {
-                        return true;
-                    } else {
-                        reconnect();
-                        return false;
-                    }
-                } else {
-                    return false;
-                }
-            }
-        }
-    }
-
-    /**
-     * @param listener NetworkMonitorListener
-     */
-    public void seConnectionListener(NetworkMonitorListener listener) {
-        if (listener != null) {
-            this.networkMonitorListener = listener;
-        }
-    }
-
-    public void unsetListener() {
-        this.networkMonitorListener = null;
-    }
-
-
-    /**
-     * Starts network connectivity monitoring.
-     *
-     * @param context {@link Context} to access services and register handlers.
-     */
-    public void startConnectivityMonitoring(Context context) {
-        // Start monitoring broadcast notifications for connectivity
-        context.getApplicationContext().registerReceiver(new ConnectivityChangeReceiver(), new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
-
-        handleConnectivityNotification(context);
-    }
-
-    /**
-     *
-     */
-    private class ConnectivityChangeReceiver extends BroadcastReceiver {
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            handleConnectivityNotification(context);
-        }
-    }
-
-    /**
-     * @param context Context
-     */
-    private void handleConnectivityNotification(Context context) {
-        // Update flag based on current connectivity state
-        try {
-            ConnectivityManager mgr = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-            NetworkInfo netInfo = mgr.getActiveNetworkInfo();
-            if ((netInfo != null) && (netInfo.isConnected())) {
-                callConnectionListener(true);
-            } else {
-                callConnectionListener(false);
-            }
-        } catch (Exception e) {
-            callConnectionListener(false);
-        }
-    }
-
-    /**
-     * @param status boolean
-     */
-    private void callConnectionListener(boolean status) {
-        this.hasNetworkConnection = status;
-        if (networkMonitorListener != null) {
-            networkMonitorListener.onInternetStatusChanged(status);
-        }
-    }
-
-    public boolean isWorkLibOffline() {
-        return workLibOffline;
-    }
-
-    public void setWorkLibOffline(boolean workLibOffline) {
-        this.workLibOffline = workLibOffline;
-    }
-
 }

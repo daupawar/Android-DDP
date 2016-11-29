@@ -16,14 +16,16 @@ package im.delight.android.ddp.examples;
  * limitations under the License.
  */
 
-import im.delight.android.ddp.ResultListener;
-import java.util.Map;
-import java.util.HashMap;
-import im.delight.android.ddp.Meteor;
-import im.delight.android.ddp.MeteorCallback;
-import im.delight.android.ddp.db.memory.InMemoryDatabase;
 import android.app.Activity;
 import android.os.Bundle;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import im.delight.android.ddp.Meteor;
+import im.delight.android.ddp.MeteorCallback;
+import im.delight.android.ddp.ResultListener;
+import im.delight.android.ddp.db.memory.InMemoryDatabase;
 
 public class MainActivity extends Activity implements MeteorCallback {
 
@@ -38,7 +40,7 @@ public class MainActivity extends Activity implements MeteorCallback {
 		Meteor.setLoggingEnabled(true);
 
 		// create a new instance
-		mMeteor = new Meteor(this, "ws://android-ddp-meteor.meteor.com/websocket", new InMemoryDatabase());
+		mMeteor = new Meteor(this, "wss://app.basemap.com/websocket", new InMemoryDatabase());
 
 		// register the callback that will handle events and receive messages
 		mMeteor.addCallback(this);
